@@ -55,6 +55,7 @@ h1{margin:0 0 4px;font-size:28px;text-align:center;color:#e67e22}
 .md.race{background:linear-gradient(135deg,#ffe3e3,#ff9e9e)}
 .md.space{background:linear-gradient(135deg,#3a3f7a,#141838);color:#fff}
 .grp{grid-column:1/-1;font-size:14px;font-weight:700;color:#8a6d4b;margin:4px 2px 0}
+.back{display:block;text-align:center;margin-top:10px;padding:11px;border-radius:12px;background:#e8f4ff;color:#2b5d8a;font-weight:700;text-decoration:none;font-size:16px}
 .opts{display:flex;gap:8px;margin-top:12px}
 .opts button{flex:1;border:2px solid #e0c9a0;background:#fff;border-radius:12px;padding:10px;font-size:16px;color:#4a3a28}
 .how{font-size:15px;line-height:1.65;background:#fff3d6;border-radius:14px;padding:10px 12px;margin-top:12px}
@@ -90,6 +91,7 @@ h1{margin:0 0 4px;font-size:28px;text-align:center;color:#e67e22}
     <h1>🐣 小暖滑滑樂</h1>
     <p class="sub">陪小暖滑雪、滑沙、溜冰、漂流、衝浪，還能開賽車、坐火箭，十二個地方一路玩！</p>
     <div class="modes" id="modeList"></div>
+    <a class="back hide" id="backClock" href="../Clock/">⏰ 回暖心時鐘</a>
     <div class="opts">
       <button id="spdBtn">🐢 速度：慢</button>
       <button id="sndBtn">🔊 音效：開</button>
@@ -113,6 +115,7 @@ h1{margin:0 0 4px;font-size:28px;text-align:center;color:#e67e22}
     <div class="tip" id="rTip"></div>
     <div class="btns">
       <button class="alt" id="rMenu">選關卡</button>
+      <button class="alt hide" id="rClock">⏰ 時鐘</button>
       <button id="rAgain">再玩一次</button>
       <button class="nx" id="rNext">下一關 ▶</button>
     </div>
@@ -1169,6 +1172,11 @@ function frame(now){
   if(KIND()==='river')drawRiver();else drawSlope();
   requestAnimationFrame(frame);
 }
+/* ---------- 從暖心時鐘進來：顯示回時鐘 ---------- */
+(function(){var url=null;try{
+  if(/[?&]from=clock/.test(location.search)){var r=document.referrer||'';url=(/github\.io\/clock/i.test(r))?r.split(/[?#]/)[0].replace(/[^\/]*$/,''):'../Clock/';localStorage.setItem('warmmy_clock',url);}
+  else url=localStorage.getItem('warmmy_clock');}catch(e){}
+  if(url){$('backClock').href=url;$('backClock').classList.remove('hide');$('rClock').classList.remove('hide');$('rClock').onclick=function(){location.href=url;};}})();
 buildMenu();start(pick(ORDER),true);G.state='menu';
 // 示範：自動跳
 setInterval(function(){if(G.state==='menu'&&KIND()!=='river'&&G.pl.onG&&Math.random()<.3){G.state='play';tapSlope();G.state='menu';}},900);
