@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="viewport" id="vp" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -15,18 +15,22 @@
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;overflow:hidden;background:#7fc8ff;font-family:-apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;
-  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none;overscroll-behavior:none}
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;overscroll-behavior:none}
+canvas,#hud,#prog{touch-action:none}
 canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
 .hide{display:none!important}
 #hud{position:fixed;left:0;right:0;top:0;padding:calc(env(safe-area-inset-top) + 8px) 12px 0;display:flex;align-items:center;gap:8px;pointer-events:none;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5)}
 #hud .hearts{font-size:22px;letter-spacing:1px}
 #hud .cnt{font-size:18px;font-weight:700;background:rgba(0,0,0,.25);padding:4px 10px;border-radius:14px;white-space:nowrap}
-#pauseBtn{pointer-events:auto;margin-left:auto;width:44px;height:44px;border-radius:50%;border:0;background:rgba(255,255,255,.85);font-size:18px}
+#zoomBox{margin-left:auto;display:flex;gap:6px;pointer-events:auto}
+#zoomBox button{width:40px;height:40px;border-radius:50%;border:0;background:rgba(255,255,255,.75);font-size:20px;font-weight:700;color:#4a3a28}
+#pauseBtn{pointer-events:auto;width:44px;height:44px;border-radius:50%;border:0;background:rgba(255,255,255,.85);font-size:18px}
 #prog{position:fixed;left:14px;right:14px;bottom:calc(env(safe-area-inset-bottom) + 10px);height:7px;border-radius:4px;background:rgba(0,0,0,.25);pointer-events:none}
 #prog i{display:block;height:100%;border-radius:4px;background:#ffd54a;width:0}
 #prog b{position:absolute;top:-11px;margin-left:-11px;font-size:18px;left:0}
 #prog span{position:absolute;right:-6px;top:-16px;font-size:18px}
 .scr{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(20,40,70,.28);overflow:auto}
+.scr{touch-action:pan-x pan-y pinch-zoom}
 .card{background:#fffaf0;border-radius:24px;padding:20px 18px;max-width:560px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.3);color:#4a3a28;max-height:100%;overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y}
 h1{margin:0 0 4px;font-size:28px;text-align:center;color:#e67e22}
 .sub{text-align:center;font-size:15px;margin:0 0 14px;color:#8a6d4b}
@@ -71,6 +75,7 @@ h1{margin:0 0 4px;font-size:28px;text-align:center;color:#e67e22}
   <div class="hearts" id="hHearts">❤️❤️❤️</div>
   <div class="cnt" id="hCnt">❄️ 0</div>
   <div class="cnt" id="hX" style="display:none"></div>
+  <div id="zoomBox"><button id="zOut" aria-label="縮小">－</button><button id="zIn" aria-label="放大">＋</button></div>
   <button id="pauseBtn" aria-label="暫停">⏸</button>
 </div>
 <div id="prog" class="hide"><i id="progI"></i><b id="progB">🐣</b><span>🏠</span></div>
@@ -88,6 +93,7 @@ h1{margin:0 0 4px;font-size:28px;text-align:center;color:#e67e22}
     <div class="how">
       <b>⛷️ 滑坡關：</b>小暖會自己往下滑。點一下畫面＝跳，空中再點＝二段跳。飛在空中時<b>按住不放</b>小暖會翻跟斗，落地站穩有加分！<br>
       <b>🛟 漂流關：</b>手指按住畫面左右移動，小暖會往手指的方向划過去。躲開障礙物，順便救起迷路的小鴨鴨、小海龜。<br>
+      🔍 玩的時候兩指張開／捏合可以放大縮小畫面，也可以按右上角的 ＋ －。選單文字太小時，一樣可以用兩指放大。<br>
       🍭 糖果王國的綠色果凍會把小暖彈飛；🧊 冰洞的冰面特別滑，會越溜越快。
     </div>
   </div>
@@ -122,13 +128,15 @@ h1{margin:0 0 4px;font-size:28px;text-align:center;color:#e67e22}
 var $=function(id){return document.getElementById(id);};
 var cv=$('cv'),g=cv.getContext('2d');
 var W=800,H=400,S=1,DPR=1;
-function resize(){DPR=Math.min(window.devicePixelRatio||1,2);var cw=innerWidth,ch=innerHeight;cv.width=Math.round(cw*DPR);cv.height=Math.round(ch*DPR);
-  S=Math.min(ch/400,cw/440);W=cw/S;H=ch/S;}
+var ZOOM=1;
+function resize(){DPR=Math.min(window.devicePixelRatio||1,2);var de=document.documentElement,cw=de.clientWidth||innerWidth,ch=de.clientHeight||innerHeight;cv.width=Math.round(cw*DPR);cv.height=Math.round(ch*DPR);
+  S=Math.min(ch/400,cw/440)*ZOOM;W=cw/S;H=ch/S;}
 addEventListener('resize',resize);resize();
 
 /* ---------- 存檔 ---------- */
 var SAVE={best:{},slow:true,snd:true};
 try{var sv=JSON.parse(localStorage.getItem('warmmy_save')||'null');if(sv)for(var k in sv)SAVE[k]=sv[k];}catch(e){}
+if(SAVE.zoom){ZOOM=SAVE.zoom;resize();}
 function save(){try{localStorage.setItem('warmmy_save',JSON.stringify(SAVE));}catch(e){}}
 
 /* ---------- 音效 ---------- */
@@ -833,7 +841,8 @@ function drawFx(ox,oy,river){
 }
 
 /* ---------- 流程 ---------- */
-function start(mode,demo){
+function resetPageZoom(){var vp=$('vp');if(!vp||!window.visualViewport||visualViewport.scale<=1.01)return;var c=vp.content;vp.content=c+',maximum-scale=1';setTimeout(function(){vp.content=c;resize();},400);}
+function start(mode,demo){if(!demo)resetPageZoom();
   G.mode=mode;G.demo=!!demo;G.decel=0;G.t=0;G.hearts=3;G.got=0;G.inv=0;G.fx=[];G.pt=[];G.endT=0;G.win=false;G.held=false;G.ducks=0;
   if(MODES[mode].kind==='river')riverInit();else slopeInit();
   if(demo){G.state='play';return;}
@@ -902,9 +911,24 @@ $('pGo').onclick=function(){$('pause').classList.add('hide');G.state='play';last
 /* ---------- 輸入 ---------- */
 var KEY={l:false,r:false};
 function lx(e){return e.clientX/S;}
-cv.addEventListener('pointerdown',function(e){e.preventDefault();unlockAudio();if(G.state!=='play')return;
+/* ---- 兩指縮放 ---- */
+var PTR={},pinch=null;
+function setZoom(z,show){z=clamp(Math.round(z*100)/100,.6,1.8);if(z===ZOOM)return;ZOOM=z;SAVE.zoom=z;resize();
+  if(G.mode&&KIND()!=='river'&&G.pl){G.camY=G.pl.y-H*.5;}
+  if(show){clearTimeout(setZoom.t);var hn=$('hint');hn.textContent='🔍 畫面 '+Math.round(z*100)+'%';hn.classList.remove('hide');hn.style.opacity=1;setZoom.t=setTimeout(function(){hn.style.opacity=0;save();},900);}}
+function pdist(){var k=Object.keys(PTR);if(k.length<2)return 0;var a=PTR[k[0]],b=PTR[k[1]];return Math.hypot(a.x-b.x,a.y-b.y);}
+cv.addEventListener('pointerdown',function(e){PTR[e.pointerId]={x:e.clientX,y:e.clientY};
+  if(Object.keys(PTR).length>=2){e.preventDefault();G.held=false;pinch={d:pdist(),z:ZOOM};return;}},true);
+addEventListener('pointermove',function(e){if(!PTR[e.pointerId])return;PTR[e.pointerId]={x:e.clientX,y:e.clientY};
+  if(pinch&&Object.keys(PTR).length>=2){var d=pdist();if(pinch.d>10)setZoom(pinch.z*d/pinch.d,true);}});
+function pend(e){delete PTR[e.pointerId];if(Object.keys(PTR).length<2)pinch=null;}
+addEventListener('pointerup',pend);addEventListener('pointercancel',pend);
+['gesturestart','gesturechange'].forEach(function(n){cv.addEventListener(n,function(e){e.preventDefault();});});
+$('zIn').addEventListener('pointerdown',function(e){e.stopPropagation();});$('zOut').addEventListener('pointerdown',function(e){e.stopPropagation();});
+$('zIn').onclick=function(){setZoom(ZOOM+.15,true);};$('zOut').onclick=function(){setZoom(ZOOM-.15,true);};
+cv.addEventListener('pointerdown',function(e){e.preventDefault();unlockAudio();if(G.state!=='play'||pinch)return;
   G.held=true;G.pressT=G.t;G.ptrX=lx(e);if(KIND()!=='river')tapSlope();});
-addEventListener('pointermove',function(e){if(G.held)G.ptrX=lx(e);});
+addEventListener('pointermove',function(e){if(G.held&&!pinch)G.ptrX=lx(e);});
 function up(){G.held=false;}
 addEventListener('pointerup',up);addEventListener('pointercancel',up);
 addEventListener('keydown',function(e){if(G.state!=='play')return;
