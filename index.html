@@ -718,13 +718,14 @@ function updRiver(dt){
   if(R.cars)for(var ci=0;ci<R.cars.length;ci++){var car=R.cars[ci];car.d+=rFlow(car.d)*(M.spd||1)*car.sp*dt;car.x=rC(car.d)+(car.u+Math.sin(G.t*.8+car.ph)*.12)*(rHW(car.d)-30);
     if(!car.passed&&pl.d>car.d+40){car.passed=true;if(!car.hit&&playing&&!G.demo){G.ducks++;tone(500,.12,'square',.07,900);addFx(pl.x,-pl.d-50,'超車！','#ffd54a',1);}}}
   var c=rC(pl.d),hw=rHW(pl.d);
-  var ax=0;
-  if(playing&&G.held&&!G.demo&&pl.dizzy<=0&&!(M.sky&&R.lt<3)){var tx=G.camX+(G.ptrX-W/2);ax=clamp((tx-pl.x)*7,-700,700);}
-  if(KEY.l)ax=-600;if(KEY.r)ax=600;
+  var ax=0,steer=null,VMAX=SAVE.slow?560:680;
+  // 手指位置換算成「按下當下」的世界座標，鏡頭移動時目標不會跟著跑
+  if(playing&&G.held&&!G.demo&&pl.dizzy<=0&&!(M.sky&&R.lt<3)&&G.ptrWX!=null){steer=clamp((G.ptrWX-pl.x)*9,-VMAX,VMAX);if(Math.abs(G.ptrWX-pl.x)<3)steer=0;}
+  if(KEY.l)steer=-VMAX*.85;if(KEY.r)steer=VMAX*.85;
   if(G.demo){var tgt=c+Math.sin(G.t*.7)*hw*.4;ax=(tgt-pl.x)*3;}
-  ax+=(c-pl.x)*(M.track?.12:.5); // 水流往中間帶
   if(pl.dizzy>0){pl.dizzy-=dt;pl.spinA+=10*dt;ax+=Math.sin(G.t*9)*400;}
-  pl.vx+=ax*dt;pl.vx*=Math.pow(.18,dt);
+  if(steer!==null){pl.vx+=(steer-pl.vx)*Math.min(1,16*dt);}   // 直接跟手，幾乎沒有延遲
+  else{ax+=(c-pl.x)*(M.track?.12:.5);pl.vx+=ax*dt;pl.vx*=Math.pow(.18,dt);} // 放手時才讓水流帶回中間
   pl.x+=pl.vx*dt;
   // 岸
   var lim=hw-20;
@@ -735,7 +736,7 @@ function updRiver(dt){
     if(Math.random()<dt*nn)G.pt.push({x:pl.x+rnd(-7,7),y:-pl.d+42,vx:rnd(-30,30)*(lift?1:4),vy:rnd(60,140)*(lift?1:.3),l:lift?.45:1.2,c:pick(lift?['#ffeb3b','#ff9800','#ff5722','rgba(230,230,240,.8)']:['rgba(240,240,245,.9)','rgba(210,210,220,.9)']),r:rnd(3,lift?6:10)});}
   else if(M.track){if(Math.random()<dt*(pl.boost>0?40:14))G.pt.push({x:pl.x+rnd(-6,6),y:-pl.d+26,vx:rnd(-15,15),vy:rnd(30,80),l:.5,c:pl.boost>0?pick(['#ffb300','#ff7043']):'rgba(200,200,200,.7)',r:rnd(2,4.5)});}
   else if(Math.random()<dt*(6+rapid(pl.d)*20))G.pt.push({x:pl.x+rnd(-18,18),y:-pl.d+10,vx:rnd(-20,20),vy:rnd(20,60),l:.5,c:'rgba(255,255,255,.8)',r:rnd(1.5,3)});
-  G.camX+=(pl.x-G.camX)*Math.min(1,3*dt);
+  G.camX+=(pl.x-G.camX)*Math.min(1,2.2*dt);
   if(playing&&!G.demo)collideRiver(pl);
   if(G.state==='play'&&pl.d>R.L+220)win();
 }
@@ -876,7 +877,7 @@ function drawRiver(){
     rr(SX(cb)-hb,yb-18,hb*2,6,3,'#d9412b');rr(SX(cb)-hb,yb+12,hb*2,6,3,'#d9412b');
     for(k=0;k<=4;k++){var px2=SX(cb)-hb+k*hb/2;rr(px2-4,yb-22,8,10,2,'#c0392b');rr(px2-4,yb+10,8,10,2,'#c0392b');}}
   if(M.petals){for(i=0;i<22;i++){x=((i*97.1+Math.sin(t*.9+i)*40+t*15)%(W+40)+W+40)%(W+40)-20;y=((i*71.3+t*(30+i%4*8))%(H+30))-15;ell(x,y,4,2.4,i%3?'#ffc2d6':'#ff9fc0',t*2+i);}}
-  if(G.held&&G.state==='play'){g.strokeStyle='rgba(255,255,255,.5)';g.lineWidth=2;g.setLineDash([4,6]);g.beginPath();g.moveTo(px,py-20);g.lineTo(G.ptrX,py-20);g.stroke();g.setLineDash([]);circ(G.ptrX,py-20,6,'rgba(255,255,255,.7)');}
+  if(G.held&&G.state==='play'&&G.ptrWX!=null){var tsx=SX(G.ptrWX);g.strokeStyle='rgba(255,255,255,.5)';g.lineWidth=2;g.setLineDash([4,6]);g.beginPath();g.moveTo(px,py-20);g.lineTo(tsx,py-20);g.stroke();g.setLineDash([]);circ(tsx,py-20,6,'rgba(255,255,255,.7)');}
   drawFx(cx-W/2,-PY-pl.d,true);
 }
 function drawTrackMarks(d0,d1,SX,SY){
@@ -1584,9 +1585,10 @@ addEventListener('pointerup',pend);addEventListener('pointercancel',pend);
 ['gesturestart','gesturechange'].forEach(function(n){cv.addEventListener(n,function(e){e.preventDefault();});});
 $('zIn').addEventListener('pointerdown',function(e){e.stopPropagation();});$('zOut').addEventListener('pointerdown',function(e){e.stopPropagation();});
 $('zIn').onclick=function(){setZoom(ZOOM+.15,true);};$('zOut').onclick=function(){setZoom(ZOOM-.15,true);};
-cv.addEventListener('pointerdown',function(e){e.preventDefault();unlockAudio();if(G.state!=='play'||pinch)return;
+function setPtrW(e){if(G.mode&&KIND()==='river')G.ptrWX=G.camX+(lx(e)-W/2);}
+cv.addEventListener('pointerdown',function(e){e.preventDefault();unlockAudio();if(G.state!=='play'||pinch)return;setPtrW(e);
   G.held=true;G.pressT=G.t;G.ptrX=lx(e);if(KIND()==='shape')shapeDown(lx(e),e.clientY/S);else if(KIND()==='show')tapShow();else if(KIND()!=='river')tapSlope();});
-addEventListener('pointermove',function(e){if(G.held&&!pinch){G.ptrX=lx(e);if(KIND()==='shape')shapeMove(lx(e),e.clientY/S);}});
+addEventListener('pointermove',function(e){if(G.held&&!pinch){G.ptrX=lx(e);setPtrW(e);if(KIND()==='shape')shapeMove(lx(e),e.clientY/S);}});
 function up(){G.held=false;if(G.mode&&KIND()==='shape')shapeUp();}
 addEventListener('pointerup',up);addEventListener('pointercancel',up);
 addEventListener('keydown',function(e){if(G.state!=='play')return;
